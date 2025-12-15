@@ -344,6 +344,47 @@ app.post('/api/comments', async (req, res) => {
 
 // --- CURSOS ---
 
+
+// EDITAR PUBLICACIÓN
+app.put('/api/posts/:id', upload.array('files'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title, content, author_id } = req.body;
+
+        // 1. Buscar el post original
+        const post = await Post.findById(id);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Publicación no encontrada' });
+        }
+
+        // 2. Verificar que el usuario que edita sea el dueño
+        if (post.author.toString() !== author_id) {
+            return res.status(403).json({ success: false, message: 'No tienes permiso para editar esto' });
+        }
+
+        // 3. Actualizar campos de texto
+        post.title = title || post.title;
+        post.content = content || post.content;
+
+        // 4. (Opcional) Si suben nuevos archivos, los agregamos a los existentes
+        if (req.files && req.files.length > 0) {
+            const newAttachments = req.files.map(file => ({
+                originalName: file.originalname,
+                mimeType: file.mimetype,
+                path: file.path
+            }));
+            post.attachments.push(...newAttachments);
+        }
+
+        await post.save();
+        res.json({ success: true, post });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Error al actualizar' });
+    }
+});
+
 app.get('/api/courses', async (req, res) => {
     try {
         const { cycle } = req.query;
