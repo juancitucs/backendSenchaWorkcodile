@@ -234,6 +234,7 @@ app.post('/api/posts', upload.array('files', 5), async (req, res) => {
 });
 
 // Obtener Posts (Con filtros y búsquedas)
+// Obtener Posts (Con filtros y búsquedas) - CORREGIDO
 app.get('/api/posts', async (req, res) => {
     try {
         const { search, sort } = req.query;
@@ -290,7 +291,13 @@ app.get('/api/posts', async (req, res) => {
                     views: 1,
                     attachments: 1,
                     commentsCount: 1,
-                    author: { fullname: '$authorData.fullname', email: '$authorData.email', avatar: '$authorData.avatar' },
+                    // CORRECCIÓN AQUÍ: Agregamos _id: '$authorData._id'
+                    author: { 
+                        _id: '$authorData._id', // <--- ¡ESTO FALTABA!
+                        fullname: '$authorData.fullname', 
+                        email: '$authorData.email', 
+                        avatar: '$authorData.avatar' 
+                    },
                     courseName: { $ifNull: ['$courseDetails.name', 'Curso General'] },
                     course: { $ifNull: ['$courseDetails', null] }
                 }
@@ -382,6 +389,31 @@ app.put('/api/posts/:id', upload.array('files'), async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Error al actualizar' });
+    }
+});
+// ELIMINAR PUBLICACIÓN
+app.delete('/api/posts/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Recibimos el author_id en el body para verificar seguridad
+        const { author_id } = req.body; 
+
+        const post = await Post.findById(id);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post no encontrado' });
+        }
+
+        // Verificar seguridad: ¿Es el dueño?
+        if (post.author.toString() !== author_id) {
+            return res.status(403).json({ success: false, message: 'No tienes permiso para eliminar esto' });
+        }
+
+        await Post.deleteOne({ _id: id });
+        res.json({ success: true, message: 'Publicación eliminada correctamente' });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Error al eliminar' });
     }
 });
 
